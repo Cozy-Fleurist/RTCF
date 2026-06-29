@@ -72,7 +72,6 @@ main{flex:1;overflow:hidden;position:relative;min-height:0}
 .fchips::-webkit-scrollbar{display:none}
 .fchip{border:1px solid #E8ECF2;border-radius:5px;padding:4px 10px;font-size:.72rem;background:#fff;color:#4B5563;cursor:pointer;white-space:nowrap;font-weight:500;transition:.12s}
 .fchip.active{background:#C2185B;border-color:#C2185B;color:#fff;font-weight:600}
-.fsort{display:flex;justify-content:flex-end;margin-top:6px}
 .ppgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ppbtn{background:#fff;border:1px solid #E8ECF2;border-radius:10px;padding:14px 10px;cursor:pointer;text-align:center;transition:.12s;box-shadow:0 1px 3px rgba(0,0,0,.07);width:100%}
 .ppbtn:hover{border-color:#C2185B;background:#FFF0F5}
@@ -204,7 +203,7 @@ BODY = """
         <input class="sinput" id="fleurs-q" type="search" placeholder="Rechercher une fleur…" oninput="renderFleurs()">
       </div>
       <div class="fchips" id="fleurs-chips"></div>
-      <div class="fsort"><button class="fchip fsort-btn" id="fleurs-sort" onclick="toggleFleursSort()"></button></div>
+      <div class="fchips" id="fleurs-pchips"></div>
     </div>
     <div class="scroll-area">
       <div id="fleurs-list"></div>
@@ -316,7 +315,7 @@ function resolveAdminNames(){
 }
 let pinUnlocked = false;
 let D, myId=null, curTab='profil', curFId=null, curPId=null;
-let fleursF='all', fleursSort='name', moiF='all', moiQ='';
+let fleursF='all', fleursP='all', moiF='all', moiQ='';
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 function setSyncDot(status){
@@ -680,25 +679,24 @@ function buildFleursChips(){
   const chips=[{k:'all',l:'Toutes'},{k:'N',l:'N'},{k:'R',l:'R'},{k:'SR',l:'SR'},{k:'SSR',l:'SSR'},{k:'UR',l:'UR'}];
   document.getElementById('fleurs-chips').innerHTML=chips.map(c=>
     `<button class="fchip${fleursF===c.k?' active':''}" onclick="setFleursF('${c.k}')">${c.l}</button>`).join('');
-  updateFleursSortBtn();
 }
 function setFleursF(k){fleursF=k;buildFleursChips();renderFleurs();}
-function updateFleursSortBtn(){
-  const b=document.getElementById('fleurs-sort'); if(!b) return;
-  b.textContent=fleursSort==='points'?'Tri : Points ↓':'Tri : A→Z';
-  b.classList.toggle('active',fleursSort==='points');
+function buildFleursPChips(){
+  const pts=[...new Set(D.flowers.map(f=>f.points).filter(p=>p!=null))].sort((a,b)=>a-b);
+  const chips=[{k:'all',l:'Tous pts'},...pts.map(p=>({k:String(p),l:p+'pts'}))];
+  document.getElementById('fleurs-pchips').innerHTML=chips.map(c=>
+    `<button class="fchip${String(fleursP)===c.k?' active':''}" onclick="setFleursP('${c.k}')">${c.l}</button>`).join('');
 }
-function toggleFleursSort(){fleursSort=fleursSort==='points'?'name':'points';updateFleursSortBtn();renderFleurs();}
+function setFleursP(k){fleursP=k;buildFleursPChips();renderFleurs();}
 function renderFleurs(){
   const q=norm(document.getElementById('fleurs-q').value);
   const nP=D.players.length;
   const fl=D.flowers.filter(f=>{
     if(q&&!norm(f.name).includes(q)) return false;
     if(fleursF!=='all'&&f.rarity!==fleursF) return false;
+    if(fleursP!=='all'&&String(f.points)!==fleursP) return false;
     return true;
   });
-  if(fleursSort==='points') fl.sort((a,b)=>(b.points??-1)-(a.points??-1)||a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
-  else fl.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
   const el=document.getElementById('fleurs-list');
   if(!fl.length){el.innerHTML='<div class="empty">Aucune fleur trouvée</div>';return;}
   el.innerHTML=fl.map(f=>{
@@ -1015,6 +1013,7 @@ function doImport(){
     logEvent('page_load','fallback_error');
   }finally{
     buildFleursChips();
+    buildFleursPChips();
     refreshAll();
     updateFab();
     updateNav();
