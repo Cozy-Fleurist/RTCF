@@ -434,13 +434,13 @@ function setMe(id){
   myId=id; pinUnlocked=false;
   localStorage.setItem(ME_KEY,id);
   logEvent('profile_select');
-  updateFab(); updateNav(); renderProfil();
+  updateFab(); updateNav(); refreshAll();
 }
 function clearMe(){
   logEvent('profile_clear');
   myId=null; pinUnlocked=false;
   localStorage.removeItem(ME_KEY);
-  updateFab(); updateNav(); renderProfil();
+  updateFab(); updateNav(); refreshAll();
 }
 function updateFab(){
   const fab=document.getElementById('fab');
