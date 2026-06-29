@@ -149,7 +149,7 @@ RTCF/
 
 - Système de rareté : N / R / SR / SSR / UR avec badges colorés
 - Système de points : 9 / 14 / 21 / 23 / 25 / 28 / 30 pts
-- Onglet Fleurs : filtre par rareté (chips N/R/SR/SSR/UR) + bouton de tri `A→Z` / `Points ↓` (état `fleursSort`, combinable avec le filtre)
+- Onglet Fleurs : 2 rangées de chips de filtre combinables — rareté (N/R/SR/SSR/UR, état `fleursF`) et points (chips générées dynamiquement depuis les valeurs présentes, état `fleursP`). Fonctions `buildFleursChips`/`buildFleursPChips` + `setFleursF`/`setFleursP`
 - Toggle fleurs uniquement depuis l'onglet "Fleurs" (pas depuis les profils)
 - Profil : nom en gras (non modifiable) + label facultatif modifiable
 - Multi-admin : Charline (p1, 0909), Court of Bloom (1910), Selkyy1 (1975) — accès onglet "Gérer", édition des fleurs
