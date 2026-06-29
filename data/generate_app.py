@@ -305,7 +305,7 @@ const SUPA_URL = 'https://qbuxhzvnbnjuibbusomn.supabase.co';
 const SUPA_KEY = 'sb_publishable_0QYFdSbpvQQPBmlINtn2fw_Qeo4kDR4';
 let lastUpdAt = null;
 const ADMIN_PINS = {'p1':'0909'}; // ID → PIN (complété au chargement)
-const ADMIN_NAME_PINS = {'CourtofBloom':'1910','Sefkyy1':'1975'};
+const ADMIN_NAME_PINS = {'CourtofBloom':'1910','Selkyy1':'1975'};
 function resolveAdminNames(){
   D.players.forEach(p=>{
     const key=Object.keys(ADMIN_NAME_PINS).find(k=>p.name.replace(/\s/g,'').toLowerCase().includes(k.toLowerCase())||p.short.toLowerCase()===k.toLowerCase());
