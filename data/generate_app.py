@@ -188,7 +188,7 @@ BODY = """
   </div>
 </div>
 <div class="hdr">
-  <span class="hdr-logo">🌸 Divine Sakura</span>
+  <span class="hdr-logo">🌸 Les Glycines</span>
   <span id="sync-dot" class="sync-dot" title="Synchronisé"></span>
 </div>
 
@@ -304,8 +304,14 @@ const SK = 'rtcf_v3', ME_KEY = 'rtcf_me';
 const SUPA_URL = 'https://qbuxhzvnbnjuibbusomn.supabase.co';
 const SUPA_KEY = 'sb_publishable_0QYFdSbpvQQPBmlINtn2fw_Qeo4kDR4';
 let lastUpdAt = null;
-const ADMINS = new Set(['p1']); // Rose Bouquet / Charline
-const ADMIN_PIN = '0909';
+const ADMIN_PINS = {'p1':'0909'}; // ID → PIN (complété au chargement)
+const ADMIN_NAME_PINS = {'CourtofBloom':'1910','Sefkyy1':'1975'};
+function resolveAdminNames(){
+  D.players.forEach(p=>{
+    const key=Object.keys(ADMIN_NAME_PINS).find(k=>p.name.replace(/\s/g,'').toLowerCase().includes(k.toLowerCase())||p.short.toLowerCase()===k.toLowerCase());
+    if(key&&!(p.id in ADMIN_PINS)) ADMIN_PINS[p.id]=ADMIN_NAME_PINS[key];
+  });
+}
 let pinUnlocked = false;
 let D, myId=null, curTab='profil', curFId=null, curPId=null;
 let fleursF='all', moiF='all', moiQ='';
@@ -419,7 +425,7 @@ function save(){
     })
     .catch(()=>{setSyncDot('error');logEvent('sync_error');});
 }
-function isAdmin(){ return myId&&ADMINS.has(myId); }
+function isAdmin(){ return myId&&myId in ADMIN_PINS; }
 function updateNav(){
   const btn=document.querySelector('.nbtn[data-tab="gerer"]');
   if(btn) btn.style.display=isAdmin()?'':'none';
@@ -742,7 +748,7 @@ function renderManage(){
   const fls=D.flowers.filter(f=>!qf||norm(f.name).includes(qf));
   document.getElementById('mg-players').innerHTML=pls.map(p=>
     `<div class="mgitem"><span class="mgname">${esc(p.name)}</span>
-      <button class="del" data-id="${p.id}" onclick="askDelPlayer(this)">Supprimer</button>
+      ${p.id===myId?'<span style="font-size:.75rem;color:#9CA3AF">(toi)</span>':`<button class="del" data-id="${p.id}" onclick="askDelPlayer(this)">Supprimer</button>`}
     </div>`).join('')||'<div class="empty" style="padding:8px 0">Aucune joueuse</div>';
   document.getElementById('mg-flowers').innerHTML=fls.map(f=>
     `<div class="mgitem"><span class="mgname">${esc(f.name)}</span>
@@ -845,7 +851,7 @@ function openPinSheet(){
 }
 function submitPin(){
   const val=document.getElementById('pin-inp')?.value;
-  if(val===ADMIN_PIN){
+  if(val===ADMIN_PINS[myId]){
     pinUnlocked=true; closeSheet(); goTab('gerer');
   } else {
     const inp=document.getElementById('pin-inp');
@@ -959,6 +965,7 @@ function askDelFlowerById(id,name){
     ()=>{removeFlower(id);closeDetail('flower');closeCf();showToast('Fleur supprimée');});
 }
 function askDelPlayerById(id,name){
+  if(id===myId){showToast('Tu ne peux pas supprimer ton propre profil.');return;}
   confirm2('Supprimer cette joueuse ?',
     '"'+name+'" et toute sa collection seront supprimées.',
     ()=>{removePlayer(id);closeDetail('player');closeCf();showToast('Joueuse supprimée');});
@@ -987,6 +994,7 @@ function doImport(){
 (async()=>{
   try{
     await initData();
+    resolveAdminNames();
     logEvent('page_load');
   }catch(e){
     // Sécurité : si tout plante, on charge quand même depuis le cache local
@@ -1011,7 +1019,7 @@ html = (
     '<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">\n'
     '<meta name="robots" content="noindex, nofollow">\n'
     '<meta name="theme-color" content="#C2185B">\n'
-    '<title>Divine Sakura</title>\n'
+    '<title>Les Glycines</title>\n'
     '<style>' + CSS + '</style>\n'
     '</head>\n<body>\n'
     + BODY +
