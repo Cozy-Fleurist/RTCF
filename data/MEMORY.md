@@ -7,7 +7,7 @@
 
 ## Le projet
 
-**Divine Sakura** (anciennement RTCF · Pétales) — application web mobile de suivi de collection de fleurs pour les joueuses du club RTCF (Cozy Florist).
+**Les Glycines** (anciennement « Divine Sakura », puis RTCF · Pétales) — application web mobile de suivi de collection de fleurs pour les joueuses du club RTCF (Cozy Florist). Le nom affiché (header + `<title>`) est **Les Glycines**.
 
 - Chaque joueuse a un profil et peut cocher les fleurs qu'elle possède
 - Vue équipe avec classement, vue détail par fleur/joueuse
@@ -56,13 +56,20 @@ ALTER SEQUENCE rtcf_logs_id_seq RESTART WITH 1;
 
 | Rôle | Identifiant | Détail |
 |---|---|---|
-| Admin app | `p1` (Charline) | Accès onglet "Gérer" via PIN `0909` |
+| Admin Charline | `p1` (Rose Bouquet) | Accès onglet "Gérer" via PIN `0909` |
+| Admin Court of Bloom | `CourtofBloom / Margaux` | PIN `1910` |
+| Admin Sefkyy1 | `Sefkyy1` | PIN `1975` |
 | Logs IT | Propriétaire du repo | Lecture via dashboard Supabase uniquement |
 | Joueuses | `p0` à `p33` + `p_[timestamp]` | Profils sélectionnés sans mot de passe |
 
 - 34 joueuses, ~362 fleurs au dernier build
 - Pseudo affiché = partie après `/` dans le nom (ex: `TheaLrd / Théa` → affiche `Théa`)
 - Nom en gras = partie AVANT `/` (ex: `Rose Bouquet`), label facultatif = partie APRÈS `/` (ex: `Charline`)
+
+**Système multi-admin** (depuis 2026-06) :
+- `ADMIN_PINS = {'p1':'0909'}` : admins par ID stable + leur PIN
+- `ADMIN_NAME_PINS = {'CourtofBloom':'1910','Sefkyy1':'1975'}` : admins résolus par **nom** au chargement (`resolveAdminNames()` appelée après `initData()`) — robuste si l'ID change après régénération du xlsx
+- `isAdmin()` → `myId in ADMIN_PINS` ; `submitPin()` valide `val === ADMIN_PINS[myId]` (PIN propre à chaque admin)
 
 ---
 
@@ -128,7 +135,8 @@ RTCF/
 
 - **Logs IT dans `data/` non auto-chargés** : intentionnel, le propriétaire contrôle quand Claude charge ce contexte pour éviter les mélanges entre instances
 - **Clé Supabase dans le JS** : assumé (app publique, clé anon, RLS protège la lecture des logs)
-- **PIN admin hardcodé** : `0909`, connu de Charline uniquement
+- **PINs admin hardcodés** : Charline `0909`, Court of Bloom `1910`, Sefkyy1 `1975` (un PIN par admin)
+- **Auto-suppression de profil interdite** : une joueuse ne peut pas supprimer son propre profil (bouton remplacé par « (toi) » dans Gérer + garde JS dans `askDelPlayerById` qui bloque si `id===myId`)
 - **Warning RLS Supabase** sur `rtcf_logs` (INSERT always true) : ignoré volontairement, comportement attendu
 - **`index.html` jamais édité à la main** : toujours regénéré via `py data/generate_app.py`
 - **`.github/workflows/` à la racine** : contrainte GitHub Actions, impossible de déplacer dans `data/`
@@ -142,6 +150,7 @@ RTCF/
 - Système de points : 9 / 14 / 21 / 23 / 25 / 28 / 30 pts
 - Toggle fleurs uniquement depuis l'onglet "Fleurs" (pas depuis les profils)
 - Profil : nom en gras (non modifiable) + label facultatif modifiable
-- Admin Charline (p1) : PIN 0909, accès onglet "Gérer", édition des fleurs
+- Multi-admin : Charline (p1, 0909), Court of Bloom (1910), Sefkyy1 (1975) — accès onglet "Gérer", édition des fleurs
+- Auto-suppression de son propre profil désactivée
 - FAB "Ajouter au catalogue" uniquement sur l'onglet Fleurs
 - Barres de progression alignées (largeur fixe sur le bouton toggle)
