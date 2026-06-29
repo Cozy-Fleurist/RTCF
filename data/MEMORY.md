@@ -137,6 +137,7 @@ RTCF/
 - **Clé Supabase dans le JS** : assumé (app publique, clé anon, RLS protège la lecture des logs)
 - **PINs admin hardcodés** : Charline `0909`, Court of Bloom `1910`, Selkyy1 `1975` (un PIN par admin)
 - **Auto-suppression de profil interdite** : une joueuse ne peut pas supprimer son propre profil (bouton remplacé par « (toi) » dans Gérer + garde JS dans `askDelPlayerById` qui bloque si `id===myId`)
+- **Changement de profil → `refreshAll()` obligatoire** : `setMe()` et `clearMe()` doivent appeler `refreshAll()` (pas seulement `renderProfil()`). Sinon les marqueurs `(toi)` de l'onglet Gérer et `(moi)` de l'onglet Équipe restent figés sur l'ancien profil (bug corrigé en 2026-06). Règle générale : dès que `myId` change, re-rendre TOUTES les vues.
 - **Warning RLS Supabase** sur `rtcf_logs` (INSERT always true) : ignoré volontairement, comportement attendu
 - **`index.html` jamais édité à la main** : toujours regénéré via `py data/generate_app.py`
 - **`.github/workflows/` à la racine** : contrainte GitHub Actions, impossible de déplacer dans `data/`
