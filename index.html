@@ -165,7 +165,12 @@ main{flex:1;overflow:hidden;position:relative;min-height:0}
 .note-edit{background:#fff;border:1px solid #C2185B;color:#C2185B;border-radius:6px;padding:3px 11px;font-size:.72rem;font-weight:600;cursor:pointer;flex-shrink:0}
 .note-edit:hover{background:#C2185B;color:#fff}
 .note-body{font-size:.82rem;color:#4B5563;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.note-body.clamp{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .note-empty{color:#9CA3AF;font-style:italic}
+.notecard.tap{cursor:pointer}
+.notecard.tap:active{transform:scale(.995)}
+.note-more{font-size:.72rem;color:#C2185B;font-weight:600;margin-top:7px}
+.note-view{font-size:.9rem;color:#374151;line-height:1.6;white-space:pre-wrap;word-break:break-word;margin-bottom:16px;max-height:60vh;overflow-y:auto}
 .btn-rn{background:#EDE9FE;color:#5B21B6;border:1px solid #DDD6FE;border-radius:5px;padding:4px 9px;font-size:.72rem;cursor:pointer;font-weight:600;flex-shrink:0}
 .btn-rn:hover{background:#5B21B6;color:#fff}
 ::-webkit-scrollbar{width:7px;height:7px}
@@ -759,13 +764,27 @@ function notesCardHTML(){
   const canEdit=isAdmin();
   if(!txt&&!canEdit) return '';
   const body=txt?esc(txt):'<span class="note-empty">Aucune note pour l\'instant</span>';
-  return `<div class="notecard">
+  return `<div class="notecard${txt?' tap':''}"${txt?' onclick="openNotesView()"':''}>
     <div class="note-hdr">
       <span class="note-title">📌 Bloc-notes</span>
-      ${canEdit?`<button class="note-edit" onclick="openNotesEdit()">✏️ Modifier</button>`:''}
+      ${canEdit?`<button class="note-edit" onclick="event.stopPropagation();openNotesEdit()">✏️ Modifier</button>`:''}
     </div>
-    <div class="note-body">${body}</div>
+    <div class="note-body clamp">${body}</div>
+    ${txt?'<div class="note-more">Appuyer pour ouvrir en entier ›</div>':''}
   </div>`;
+}
+function openNotesView(){
+  const txt=(D.notes||'').trim();
+  if(!txt) return;
+  document.getElementById('sh-body').innerHTML=`
+    <div class="sh-title">📌 Bloc-notes</div>
+    <div class="note-view">${esc(txt)}</div>
+    <div class="sh-btns">
+      ${isAdmin()?`<button class="btn btn-ghost" onclick="openNotesEdit()">✏️ Modifier</button>`:''}
+      <button class="btn btn-pk" onclick="closeSheet()">Fermer</button>
+    </div>`;
+  document.getElementById('shbg').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
 }
 function openNotesEdit(){
   if(!isAdmin()) return;
