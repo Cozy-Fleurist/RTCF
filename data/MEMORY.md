@@ -157,5 +157,5 @@ RTCF/
 - Auto-suppression de son propre profil désactivée
 - FAB "Ajouter au catalogue" uniquement sur l'onglet Fleurs
 - Barres de progression alignées (largeur fixe sur le bouton toggle)
-- **Bloc-notes** (depuis 2026-07) : encart en haut de l'onglet Équipe, visible par toutes, modifiable uniquement par les admins. Stocké dans `D.notes` (string), synchronisé via Supabase. Fonctions `notesCardHTML`/`openNotesEdit`/`saveNotes`. Le bouton « Modifier » n'apparaît que si `isAdmin()` ; l'édition exige le PIN (via `openPinSheet(callback)`)
+- **Bloc-notes** (depuis 2026-07) : encart en haut de l'onglet Équipe, visible par toutes, modifiable uniquement par les admins. Stocké dans `D.notes` (string), synchronisé via Supabase. Fonctions `notesCardHTML`/`openNotesView`/`openNotesEdit`/`saveNotes`. La carte affiche un aperçu limité à 4 lignes (`.note-body.clamp`) ; **un appui ouvre le texte complet en lecture** via `openNotesView()` (accessible à **toutes**, pas seulement aux admins). Le bouton « Modifier » n'apparaît que si `isAdmin()` (carte + vue) ; l'édition exige le PIN (via `openPinSheet(callback)`)
 - **Renommage des joueuses** (depuis 2026-07) : bouton « Renommer » dans l'onglet Gérer (pour toutes, y compris soi-même). Fonctions `renamePlayer`/`openRenamePlayer`/`submitRename`. Met à jour `name` + `short` en respectant le format `Pseudo / Prénom`
