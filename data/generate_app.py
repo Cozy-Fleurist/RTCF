@@ -173,6 +173,15 @@ main{flex:1;overflow:hidden;position:relative;min-height:0}
 .rsel-btn{border:1px solid #E8ECF2;border-radius:5px;padding:5px 11px;font-size:.75rem;font-weight:600;cursor:pointer;background:#fff;color:#4B5563;transition:.12s}
 .rsel-btn.on{border-color:#C2185B;background:#FCE4EC;color:#880E4F}
 .empty{text-align:center;color:#9CA3AF;padding:28px 10px;font-size:.82rem}
+.notecard{background:linear-gradient(135deg,#FFF0F5,#F5F3FF);border:1px solid #F3D5E3;border-radius:10px;padding:13px 15px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.note-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.note-title{font-size:.8rem;font-weight:700;color:#880E4F}
+.note-edit{background:#fff;border:1px solid #C2185B;color:#C2185B;border-radius:6px;padding:3px 11px;font-size:.72rem;font-weight:600;cursor:pointer;flex-shrink:0}
+.note-edit:hover{background:#C2185B;color:#fff}
+.note-body{font-size:.82rem;color:#4B5563;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.note-empty{color:#9CA3AF;font-style:italic}
+.btn-rn{background:#EDE9FE;color:#5B21B6;border:1px solid #DDD6FE;border-radius:5px;padding:4px 9px;font-size:.72rem;cursor:pointer;font-weight:600;flex-shrink:0}
+.btn-rn:hover{background:#5B21B6;color:#fff}
 ::-webkit-scrollbar{width:7px;height:7px}
 ::-webkit-scrollbar-track{background:#F1F5F9;border-radius:4px}
 ::-webkit-scrollbar-thumb{background:#C2185B55;border-radius:4px}
@@ -409,6 +418,7 @@ async function initData(){
 }
 function fromInit(){
   return{version:3,
+    notes:'',
     players:INITIAL.players.map((nm,i)=>({id:'p'+i,name:nm,short:INITIAL.shorts[i]})),
     flowers:INITIAL.flowers.map((f,i)=>({id:'f'+i,name:f.n,rarity:null,points:null,owned:f.o.map(pi=>'p'+pi)}))};
 }
@@ -461,6 +471,14 @@ function removePlayer(id){
   D.players=D.players.filter(p=>p.id!==id);
   D.flowers.forEach(f=>{f.owned=f.owned.filter(pid=>pid!==id);});
   if(myId===id){myId=null;localStorage.removeItem(ME_KEY);}
+  save(); refreshAll();
+}
+function renamePlayer(id,nm){
+  const p=D.players.find(x=>x.id===id); if(!p) return;
+  nm=nm.trim(); if(!nm) return;
+  const part=nm.includes('/')?nm.split('/').pop().trim():nm;
+  p.name=nm;
+  p.short=part.split(' ')[0];
   save(); refreshAll();
 }
 function addFlower(nm,rarity,points){
@@ -733,8 +751,9 @@ function renderEquipe(){
     .map(p=>({...p,c:pOwned(p.id),pct:pPct(p.id)}))
     .sort((a,b)=>b.c-a.c);
   const el=document.getElementById('eq-list');
-  if(!pl.length){el.innerHTML='<div class="empty">Aucune joueuse trouvée</div>';return;}
-  el.innerHTML=pl.map((p,i)=>`
+  const notes=notesCardHTML();
+  if(!pl.length){el.innerHTML=notes+'<div class="empty">Aucune joueuse trouvée</div>';return;}
+  el.innerHTML=notes+pl.map((p,i)=>`
     <div class="litem" onclick="openPlayer('${p.id}')">
       <div class="litem-ico" style="${p.id===myId?'background:#FCE4EC;color:#880E4F':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'👤'}</div>
       <div class="litem-body">
@@ -749,6 +768,42 @@ function renderEquipe(){
     </div>`).join('');
 }
 
+// ── BLOC-NOTES ────────────────────────────────────────────────────────────────
+function notesCardHTML(){
+  const txt=(D.notes||'').trim();
+  const canEdit=isAdmin();
+  if(!txt&&!canEdit) return '';
+  const body=txt?esc(txt):'<span class="note-empty">Aucune note pour l\'instant</span>';
+  return `<div class="notecard">
+    <div class="note-hdr">
+      <span class="note-title">📌 Bloc-notes</span>
+      ${canEdit?`<button class="note-edit" onclick="openNotesEdit()">✏️ Modifier</button>`:''}
+    </div>
+    <div class="note-body">${body}</div>
+  </div>`;
+}
+function openNotesEdit(){
+  if(!isAdmin()) return;
+  if(!pinUnlocked){ openPinSheet(openNotesEdit); return; }
+  document.getElementById('sh-body').innerHTML=`
+    <div class="sh-title">📌 Modifier le bloc-notes</div>
+    <p style="font-size:.78rem;color:#9CA3AF;margin-bottom:10px">Visible par toutes les joueuses. Modifiable uniquement par les admins.</p>
+    <textarea class="sh-input" id="sh-notes" rows="6" style="resize:vertical;min-height:130px;font-family:inherit;line-height:1.5"
+      placeholder="Annonces, rappels, infos pour l'équipe…">${esc(D.notes||'')}</textarea>
+    <div class="sh-btns">
+      <button class="btn btn-ghost" onclick="closeSheet()">Annuler</button>
+      <button class="btn btn-pk" onclick="saveNotes()">Enregistrer</button>
+    </div>`;
+  document.getElementById('shbg').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+  setTimeout(()=>{const el=document.getElementById('sh-notes');if(el)el.focus();},340);
+}
+function saveNotes(){
+  const val=document.getElementById('sh-notes')?.value||'';
+  D.notes=val;
+  save(); closeSheet(); renderEquipe(); showToast('✓ Bloc-notes mis à jour');
+}
+
 // ── GÉRER TAB ─────────────────────────────────────────────────────────────────
 function renderManage(){
   const qp=norm(document.getElementById('mgp-q').value);
@@ -757,6 +812,7 @@ function renderManage(){
   const fls=D.flowers.filter(f=>!qf||norm(f.name).includes(qf));
   document.getElementById('mg-players').innerHTML=pls.map(p=>
     `<div class="mgitem"><span class="mgname">${esc(p.name)}</span>
+      <button class="btn-rn" data-id="${p.id}" onclick="openRenamePlayer(this)">Renommer</button>
       ${p.id===myId?'<span style="font-size:.75rem;color:#9CA3AF">(toi)</span>':`<button class="del" data-id="${p.id}" onclick="askDelPlayer(this)">Supprimer</button>`}
     </div>`).join('')||'<div class="empty" style="padding:8px 0">Aucune joueuse</div>';
   document.getElementById('mg-flowers').innerHTML=fls.map(f=>
@@ -843,10 +899,12 @@ function goTab(t){
   document.querySelectorAll('.nbtn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
   updateFab();
 }
-function openPinSheet(){
+let pinCb=null;
+function openPinSheet(cb){
+  pinCb=cb||null;
   document.getElementById('sh-body').innerHTML=`
     <div class="sh-title">🔒 Accès administrateur</div>
-    <p style="font-size:.82rem;color:#9CA3AF;margin-bottom:14px">Entrez le code PIN pour accéder à la gestion</p>
+    <p style="font-size:.82rem;color:#9CA3AF;margin-bottom:14px">Entrez le code PIN pour continuer</p>
     <input class="sh-input" id="pin-inp" type="password" inputmode="numeric" maxlength="4"
       placeholder="Code PIN" onkeydown="if(event.key==='Enter')submitPin()">
     <div id="pin-err" style="color:#B91C1C;font-size:.78rem;margin-bottom:10px;display:none">Code incorrect ❌</div>
@@ -861,7 +919,8 @@ function openPinSheet(){
 function submitPin(){
   const val=document.getElementById('pin-inp')?.value;
   if(val===ADMIN_PINS[myId]){
-    pinUnlocked=true; closeSheet(); goTab('gerer');
+    pinUnlocked=true; closeSheet();
+    if(pinCb){const cb=pinCb;pinCb=null;cb();} else goTab('gerer');
   } else {
     const inp=document.getElementById('pin-inp');
     const err=document.getElementById('pin-err');
@@ -951,6 +1010,27 @@ function saveFlowerEdit(id){
   const nm=document.getElementById('sh-inp')?.value||'';
   editFlower(id,nm,shRarity,shPoints);
   closeSheet(); showToast('✓ Fleur mise à jour');
+}
+function openRenamePlayer(btn){
+  const id=btn.dataset.id, p=D.players.find(x=>x.id===id); if(!p) return;
+  document.getElementById('sh-body').innerHTML=`
+    <div class="sh-title">✏️ Renommer la joueuse</div>
+    <p style="font-size:.78rem;color:#9CA3AF;margin-bottom:10px">Format : Pseudo / Prénom — le prénom après « / » est facultatif.</p>
+    <input class="sh-input" id="sh-rn-inp" type="text" value="${esc(p.name)}"
+      onkeydown="if(event.key==='Enter')submitRename('${id}')">
+    <div class="sh-btns">
+      <button class="btn btn-ghost" onclick="closeSheet()">Annuler</button>
+      <button class="btn btn-pk" onclick="submitRename('${id}')">Enregistrer</button>
+    </div>`;
+  document.getElementById('shbg').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+  setTimeout(()=>{const el=document.getElementById('sh-rn-inp');if(el)el.focus();},340);
+}
+function submitRename(id){
+  const v=document.getElementById('sh-rn-inp')?.value||'';
+  if(!v.trim()) return;
+  renamePlayer(id,v);
+  closeSheet(); showToast('✓ Joueuse renommée');
 }
 
 // ── CONFIRM ───────────────────────────────────────────────────────────────────
