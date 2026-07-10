@@ -138,6 +138,7 @@ RTCF/
 - **PINs admin hardcodés** : Charline `0909`, Court of Bloom `1910`, Selkyy1 `1975` (un PIN par admin)
 - **Auto-suppression de profil interdite** : une joueuse ne peut pas supprimer son propre profil (bouton remplacé par « (toi) » dans Gérer + garde JS dans `askDelPlayerById` qui bloque si `id===myId`)
 - **Changement de profil → `refreshAll()` obligatoire** : `setMe()` et `clearMe()` doivent appeler `refreshAll()` (pas seulement `renderProfil()`). Sinon les marqueurs `(toi)` de l'onglet Gérer et `(moi)` de l'onglet Équipe restent figés sur l'ancien profil (bug corrigé en 2026-06). Règle générale : dès que `myId` change, re-rendre TOUTES les vues.
+- **`openPinSheet(cb)` accepte un callback** : si fourni, exécuté après déverrouillage PIN au lieu de `goTab('gerer')`. Permet de déclencher une action admin (ex : édition du bloc-notes) depuis n'importe quel onglet. Sans argument → comportement historique (ouvre l'onglet Gérer)
 - **Warning RLS Supabase** sur `rtcf_logs` (INSERT always true) : ignoré volontairement, comportement attendu
 - **`index.html` jamais édité à la main** : toujours regénéré via `py data/generate_app.py`
 - **`.github/workflows/` à la racine** : contrainte GitHub Actions, impossible de déplacer dans `data/`
@@ -156,3 +157,5 @@ RTCF/
 - Auto-suppression de son propre profil désactivée
 - FAB "Ajouter au catalogue" uniquement sur l'onglet Fleurs
 - Barres de progression alignées (largeur fixe sur le bouton toggle)
+- **Bloc-notes** (depuis 2026-07) : encart en haut de l'onglet Équipe, visible par toutes, modifiable uniquement par les admins. Stocké dans `D.notes` (string), synchronisé via Supabase. Fonctions `notesCardHTML`/`openNotesEdit`/`saveNotes`. Le bouton « Modifier » n'apparaît que si `isAdmin()` ; l'édition exige le PIN (via `openPinSheet(callback)`)
+- **Renommage des joueuses** (depuis 2026-07) : bouton « Renommer » dans l'onglet Gérer (pour toutes, y compris soi-même). Fonctions `renamePlayer`/`openRenamePlayer`/`submitRename`. Met à jour `name` + `short` en respectant le format `Pseudo / Prénom`
