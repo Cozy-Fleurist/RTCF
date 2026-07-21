@@ -339,6 +339,7 @@ async function supaSave(data){
   });
 }
 async function checkSync(){
+  if(opQueue.length||draining){ drain(); return; }
   try{
     const r=await fetch(`${SUPA_URL}/rest/v1/rtcf_data?id=eq.1&select=updated_at`,
       {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
@@ -412,19 +413,67 @@ function fromInit(){
     players:INITIAL.players.map((nm,i)=>({id:'p'+i,name:nm,short:INITIAL.shorts[i]})),
     flowers:INITIAL.flowers.map((f,i)=>({id:'f'+i,name:f.n,rarity:null,points:null,owned:f.o.map(pi=>'p'+pi)}))};
 }
-function save(){
+// ── Écriture concurrente sûre (optimistic concurrency + file d'opérations) ──
+function clone(x){return JSON.parse(JSON.stringify(x));}
+function sortFlowers(doc){doc.flowers.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));}
+function applyOp(doc,op){
+  const P=doc.players,F=doc.flowers;
+  switch(op.t){
+    case 'addPlayer': if(!P.some(p=>p.id===op.id)) P.push({id:op.id,name:op.name,short:op.short}); break;
+    case 'removePlayer': doc.players=P.filter(p=>p.id!==op.id); F.forEach(f=>{f.owned=f.owned.filter(x=>x!==op.id);}); break;
+    case 'renamePlayer': {const p=P.find(x=>x.id===op.id); if(p){p.name=op.name;p.short=op.short;}} break;
+    case 'setNotes': doc.notes=op.notes; break;
+    case 'addFlower': if(!F.some(f=>f.id===op.id)){F.push({id:op.id,name:op.name,rarity:op.rarity??null,points:op.points??null,owned:(op.owned||[]).slice()});sortFlowers(doc);} break;
+    case 'editFlower': {const f=F.find(x=>x.id===op.id); if(f){if(op.name!=null)f.name=op.name;f.rarity=op.rarity??null;f.points=op.points??null;sortFlowers(doc);}} break;
+    case 'removeFlower': doc.flowers=F.filter(f=>f.id!==op.id); break;
+    case 'setOwn': {const f=F.find(x=>x.id===op.fid); if(f){const i=f.owned.indexOf(op.pid); if(op.val&&i<0)f.owned.push(op.pid); else if(!op.val&&i>=0)f.owned.splice(i,1);}} break;
+    case 'setLabel': {const p=P.find(x=>x.id===op.pid); if(p)p.label=op.label;} break;
+    case 'replaceAll': doc.players=clone(op.doc.players); doc.flowers=clone(op.doc.flowers); doc.version=op.doc.version||3; doc.notes=op.doc.notes; break;
+  }
+}
+let opQueue=[], draining=false;
+function commit(op){
+  applyOp(D,op);
   localStorage.setItem(SK,JSON.stringify(D));
+  opQueue.push(op);
   setSyncDot('saving');
-  supaSave(D)
-    .then(async()=>{
-      // Récupère le vrai updated_at pour éviter de déclencher checkSync sur notre propre save
-      const r=await fetch(`${SUPA_URL}/rest/v1/rtcf_data?id=eq.1&select=updated_at`,
-        {headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}});
-      const rows=await r.json();
-      if(rows&&rows[0]) lastUpdAt=rows[0].updated_at;
-      setSyncDot('ok');
-    })
-    .catch(()=>{setSyncDot('error');logEvent('sync_error');});
+  drain();
+}
+async function supaSaveCAS(doc,base){
+  const newTs=new Date().toISOString();
+  const url=`${SUPA_URL}/rest/v1/rtcf_data?id=eq.1&updated_at=eq.${encodeURIComponent(base)}&select=updated_at`;
+  const r=await fetch(url,{method:'PATCH',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
+    body:JSON.stringify({payload:doc,updated_at:newTs})});
+  const rows=await r.json();
+  return (Array.isArray(rows)&&rows.length)?rows[0].updated_at:null;
+}
+async function drain(){
+  if(draining) return; draining=true;
+  try{
+    let tries=0;
+    while(opQueue.length){
+      const batch=opQueue.slice();
+      const row=await supaFetch();
+      if(!row||!row.payload){
+        await supaSave(D);
+        const r2=await supaFetch(); if(r2) lastUpdAt=r2.updated_at;
+        opQueue.splice(0,batch.length); continue;
+      }
+      const doc=row.payload;
+      batch.forEach(op=>applyOp(doc,op));
+      const ts=await supaSaveCAS(doc,row.updated_at);
+      if(ts===null){ if(++tries>8) throw new Error('conflit'); continue; }
+      tries=0;
+      opQueue.splice(0,batch.length);
+      lastUpdAt=ts;
+      opQueue.forEach(op=>applyOp(doc,op));
+      D=doc; localStorage.setItem(SK,JSON.stringify(D));
+      refreshAll();
+    }
+    setSyncDot('ok');
+  }catch(e){ setSyncDot('error'); logEvent('sync_error'); }
+  finally{ draining=false; }
 }
 function isAdmin(){ return myId&&myId in ADMIN_PINS; }
 function updateNav(){
@@ -454,51 +503,45 @@ function updateFab(){
 function addPlayer(nm){
   nm=nm.trim(); if(!nm) return;
   const p=nm.includes('/')?nm.split('/').pop().trim():nm;
-  D.players.push({id:'p_'+Date.now(),name:nm,short:p.split(' ')[0]});
-  save(); refreshAll();
+  commit({t:'addPlayer',id:'p_'+Date.now(),name:nm,short:p.split(' ')[0]});
+  refreshAll();
 }
 function removePlayer(id){
-  D.players=D.players.filter(p=>p.id!==id);
-  D.flowers.forEach(f=>{f.owned=f.owned.filter(pid=>pid!==id);});
   if(myId===id){myId=null;localStorage.removeItem(ME_KEY);}
-  save(); refreshAll();
+  commit({t:'removePlayer',id});
+  refreshAll();
 }
 function renamePlayer(id,nm){
   const p=D.players.find(x=>x.id===id); if(!p) return;
   nm=nm.trim(); if(!nm) return;
   const part=nm.includes('/')?nm.split('/').pop().trim():nm;
-  p.name=nm;
-  p.short=part.split(' ')[0];
-  save(); refreshAll();
+  commit({t:'renamePlayer',id,name:nm,short:part.split(' ')[0]});
+  refreshAll();
 }
 function addFlower(nm,rarity,points){
   nm=nm.trim(); if(!nm) return;
-  D.flowers.push({id:'f_'+Date.now(),name:nm,rarity:rarity||null,points:points!=null?points:null,owned:[]});
-  D.flowers.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
-  save(); refreshAll();
+  const ex=D.flowers.find(f=>norm(f.name)===norm(nm));
+  if(ex){ showToast('« '+ex.name+' » existe déjà'); return; }
+  commit({t:'addFlower',id:'f_'+Date.now(),name:nm,rarity:rarity||null,points:points!=null?points:null,owned:[]});
+  refreshAll();
 }
 function editFlower(id,nm,rarity,points){
   const f=D.flowers.find(x=>x.id===id); if(!f) return;
-  if(nm.trim()) f.name=nm.trim();
-  f.rarity=rarity||null;
-  f.points=points!=null?points:null;
-  D.flowers.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
-  save(); renderFlower(id); refreshAll();
+  commit({t:'editFlower',id,name:(nm&&nm.trim())||null,rarity:rarity||null,points:points!=null?points:null});
+  renderFlower(id); refreshAll();
 }
 function removeFlower(id){
-  D.flowers=D.flowers.filter(f=>f.id!==id);
-  save(); refreshAll();
+  commit({t:'removeFlower',id});
+  refreshAll();
 }
 function toggleOwn(fid,pid){
   const f=D.flowers.find(x=>x.id===fid); if(!f) return;
-  const i=f.owned.indexOf(pid);
-  if(i>=0) f.owned.splice(i,1); else f.owned.push(pid);
-  save();
+  commit({t:'setOwn',fid,pid,val:!f.owned.includes(pid)});
 }
 function resetData(){
   confirm2('Réinitialiser les données ?',
     'Toutes les modifications seront perdues et remplacées par les données initiales.',
-    ()=>{D=fromInit();save();refreshAll();closeCf();showToast('Données réinitialisées');});
+    ()=>{D=fromInit();commit({t:'replaceAll',doc:clone(D)});refreshAll();closeCf();showToast('Données réinitialisées');});
 }
 
 // ── Utils ────────────────────────────────────────────────────────────────────
@@ -621,8 +664,8 @@ function openEditLabel(){
 function saveMyLabel(){
   const me=D.players.find(p=>p.id===myId); if(!me) return;
   const val=(document.getElementById('sh-label-inp')?.value||'').trim();
-  me.label=val||null;
-  save(); closeSheet(); renderProfil(); showToast('✓ Nom mis à jour');
+  commit({t:'setLabel',pid:myId,label:val||null});
+  closeSheet(); renderProfil(); showToast('✓ Nom mis à jour');
 }
 
 // ── PICKER ────────────────────────────────────────────────────────────────────
@@ -668,17 +711,17 @@ function renderPicker(){
 function pickerAdd(btn){
   const fid=btn.dataset.fid,f=D.flowers.find(x=>x.id===fid);
   if(!f||!myId) return;
-  if(!f.owned.includes(myId)){f.owned.push(myId);save();}
+  if(!f.owned.includes(myId)) commit({t:'setOwn',fid,pid:myId,val:true});
   closeSheet(); showToast('✓ '+f.name+' ajoutée !');
   renderProfil();refreshAll();
 }
 function pickerCreate(){
   const raw=(document.getElementById('picker-q')||{}).value||'';
   const name=raw.trim();if(!name||!myId) return;
-  const id='f_'+Date.now();
-  D.flowers.push({id,name,owned:[myId]});
-  D.flowers.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
-  save();closeSheet();showToast('✨ "'+name+'" créée et ajoutée !');
+  const ex=D.flowers.find(f=>norm(f.name)===norm(name));
+  if(ex){ if(!ex.owned.includes(myId)) commit({t:'setOwn',fid:ex.id,pid:myId,val:true}); closeSheet(); showToast('✓ '+ex.name+' ajoutée !'); renderProfil(); refreshAll(); return; }
+  commit({t:'addFlower',id:'f_'+Date.now(),name,rarity:null,points:null,owned:[myId]});
+  closeSheet();showToast('✨ "'+name+'" créée et ajoutée !');
   refreshAll();
 }
 
@@ -804,8 +847,8 @@ function openNotesEdit(){
 }
 function saveNotes(){
   const val=document.getElementById('sh-notes')?.value||'';
-  D.notes=val;
-  save(); closeSheet(); renderEquipe(); showToast('✓ Bloc-notes mis à jour');
+  commit({t:'setNotes',notes:val});
+  closeSheet(); renderEquipe(); showToast('✓ Bloc-notes mis à jour');
 }
 
 // ── GÉRER TAB ─────────────────────────────────────────────────────────────────
@@ -1074,7 +1117,7 @@ function doImport(){
       try{
         const data=JSON.parse(ev.target.result);
         if(!data.players||!data.flowers) throw new Error('Format invalide');
-        D=data;D.version=3;save();refreshAll();
+        D=data;D.version=3;commit({t:'replaceAll',doc:clone(D)});refreshAll();
         showToast('✓ Données importées avec succès');
       }catch(err){alert('Erreur : '+err.message);}
     };
