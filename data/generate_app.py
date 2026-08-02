@@ -43,6 +43,7 @@ main{flex:1;overflow:hidden;position:relative;min-height:0}
 .hdr{background:linear-gradient(135deg,#C2185B,#6D28D9);color:#fff;height:52px;padding:0 clamp(16px,4vw,64px);display:flex;align-items:center;gap:10px;flex-shrink:0;z-index:30}
 .hdr-logo{font-size:.95rem;font-weight:700;flex:1;letter-spacing:-.02em}
 .sync-dot{width:9px;height:9px;border-radius:50%;background:#10B981;flex-shrink:0;transition:background .4s;cursor:default}
+.hdr-build{font-size:.6rem;font-weight:600;opacity:.5;flex-shrink:0;letter-spacing:.03em;color:#fff}
 .slbl{font-size:.68rem;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.08em;margin:16px 0 8px}
 .slbl:first-child{margin-top:0}
 .card{background:#fff;border:1px solid #E8ECF2;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.07);margin-bottom:10px}
@@ -203,6 +204,7 @@ BODY = """
 </div>
 <div class="hdr">
   <span class="hdr-logo">🌸 Les Glycines</span>
+  <span class="hdr-build" id="hdr-build"></span>
   <span id="sync-dot" class="sync-dot" title="Synchronisé"></span>
 </div>
 
@@ -1171,6 +1173,7 @@ function doImport(){
     updateFab();
     updateNav();
     document.getElementById('loading').style.display='none';
+    const _hb=document.getElementById('hdr-build'); if(_hb) _hb.textContent='v'+BUILD;
   }
   setInterval(checkSync,30000);
 })();
