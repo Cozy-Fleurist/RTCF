@@ -2,7 +2,7 @@ name: Sauvegarde Divine Sakura
 
 on:
   schedule:
-    - cron: '0 7 * * 0'   # Tous les dimanches à 7h00 UTC
+    - cron: '0 7 * * *'   # Tous les jours à 7h00 UTC (perte max = 1 jour)
   workflow_dispatch:        # Déclenchement manuel depuis GitHub Actions UI
 
 jobs:
@@ -35,15 +35,15 @@ jobs:
           echo "$DATA" > "data/backups/weekly/${DATE}.json"
           echo "Sauvegarde hebdomadaire créée : data/backups/weekly/${DATE}.json"
 
-      - name: Consolidation mensuelle (1er dimanche du mois)
+      - name: Consolidation mensuelle (1er du mois)
         run: |
           DAY=$(date +%d)
           DATE=$(date +%Y-%m-%d)
           MONTH=$(date +%Y-%m)
 
-          # Le 1er dimanche = jour ≤ 7
-          if [ "$DAY" -le 7 ]; then
-            echo "1er dimanche du mois : consolidation en cours..."
+          # Backups quotidiens : on ne consolide qu'une fois par mois, le 1er
+          if [ "$DAY" = "01" ]; then
+            echo "1er du mois : consolidation en cours..."
 
             # Copie le backup du jour comme sauvegarde mensuelle
             cp "data/backups/weekly/${DATE}.json" "data/backups/monthly/${MONTH}.json"
