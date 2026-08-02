@@ -150,6 +150,12 @@ RTCF/
 - **`index.html` jamais édité à la main** : toujours regénéré via `py data/generate_app.py`
 - **`.github/workflows/` à la racine** : contrainte GitHub Actions, impossible de déplacer dans `data/`
 - **Backups dans `data/backups/`** : cohérent avec le reste des fichiers de gestion
+- **Backups QUOTIDIENS (depuis 2026-08)** : `backup.yml` cron `0 7 * * *` (avant : hebdo dominical). Consolidation mensuelle le **1er du mois** (`DAY = 01`) → archive dans `monthly/` + purge les quotidiens du mois écoulé. Perte max en cas d'incident = 1 jour.
+- **Incident du 2026-08-02 (perte de données)** : un appareil tournant **encore avec l'ancien code** (onglet ouvert depuis avant le correctif concurrence du 21/07) s'est réveillé et a **écrasé toute la base** avec sa copie périmée (« dernier qui écrit gagne »). Joueuses supprimées (Camsouille, Orianne, Aélie38, Fugazi…) + coches effacées. **« lalou » définitivement perdue** (créée puis supprimée entre le 26/07 et l'incident → jamais capturée par une sauvegarde). Récupération : **fusion name-keyed** `backup 19/07 ∪ état live` (union stricte, n'enlève rien ; joueuses/fleurs matchées par `norm(pseudo)`, ownership unionnée) → +967 coches, +4 joueuses, +6 fleurs restaurées. Scripts dans le scratchpad (`recover_merge.py`/`apply_merge.py`). Snapshot restauré sauvegardé dans `backups/weekly/2026-08-02.json`.
+- **Préventions anti-récidive (2026-08)** — 3 couches :
+  1. **Version-gate client** : `const BUILD` dans le code. À chaque `checkSync` et au chargement, `checkBuild()` compare `BUILD` à `D._minBuild`. Pour **forcer le rechargement de tous les onglets périmés** après un déploiement critique : bumper `BUILD` dans le code ET écrire `payload._minBuild = <nouveau BUILD>` en base (une écriture REST). Les onglets avec `BUILD < _minBuild` se rechargent seuls. (Ne protège que les onglets qui ont DÉJÀ ce code ; les onglets pré-2026-08 ne se rechargent pas tout seuls → il faut leur demander de fermer/rouvrir.)
+  2. **Garde-fou base de données** : trigger PostgreSQL `trg_guard_rtcf_data` (SQL dans `data/sql/guard_rtcf_data.sql`, à exécuter dans Supabase). Rejette toute écriture supprimant >3 joueuses ou >300 coches d'un coup, **quel que soit le code du client**. Désactivable temporairement pour un gros nettoyage légitime.
+  3. **Backups quotidiens** (voir ci-dessus).
 
 ---
 

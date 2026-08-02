@@ -319,6 +319,7 @@ const SK = 'rtcf_v3', ME_KEY = 'rtcf_me';
 const SUPA_URL = 'https://qbuxhzvnbnjuibbusomn.supabase.co';
 const SUPA_KEY = 'sb_publishable_0QYFdSbpvQQPBmlINtn2fw_Qeo4kDR4';
 let lastUpdAt = null;
+const BUILD = 3; // version du code deploye ; si D._minBuild > BUILD -> rechargement force
 const ADMIN_PINS = {'p1':'0909'}; // ID → PIN (complété au chargement)
 const ADMIN_NAME_PINS = {'CourtofBloom':'1910','Selkyy1':'1975'};
 function resolveAdminNames(){
@@ -353,6 +354,14 @@ async function supaSave(data){
     body:JSON.stringify({id:1,payload:data,updated_at:new Date().toISOString()})
   });
 }
+function checkBuild(){
+  if(D && BUILD < (D._minBuild||0)){
+    showToast('🔄 Nouvelle version — rechargement…');
+    setTimeout(()=>location.reload(),1500);
+    return true;
+  }
+  return false;
+}
 async function checkSync(){
   if(opQueue.length||draining){ drain(); return; }
   try{
@@ -364,6 +373,7 @@ async function checkSync(){
       if(row&&row.payload){
         D=row.payload; lastUpdAt=row.updated_at;
         localStorage.setItem(SK,JSON.stringify(D));
+        if(checkBuild()) return;
         refreshAll();
         showToast('🔄 Données mises à jour');
         logEvent('sync_update');
@@ -1146,6 +1156,7 @@ function doImport(){
   try{
     await initData();
     resolveAdminNames();
+    checkBuild();
     logEvent('page_load');
   }catch(e){
     // Sécurité : si tout plante, on charge quand même depuis le cache local
