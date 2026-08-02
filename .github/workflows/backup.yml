@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Créer les dossiers de sauvegarde
-        run: mkdir -p data/backups/weekly data/backups/monthly
+        run: mkdir -p data/backups/daily data/backups/monthly
 
       - name: Récupérer les données depuis Supabase
         run: |
@@ -32,8 +32,8 @@ jobs:
           fi
 
           DATE=$(date +%Y-%m-%d)
-          echo "$DATA" > "data/backups/weekly/${DATE}.json"
-          echo "Sauvegarde hebdomadaire créée : data/backups/weekly/${DATE}.json"
+          echo "$DATA" > "data/backups/daily/${DATE}.json"
+          echo "Sauvegarde quotidienne créée : data/backups/daily/${DATE}.json"
 
       - name: Consolidation mensuelle (1er du mois)
         run: |
@@ -46,14 +46,14 @@ jobs:
             echo "1er du mois : consolidation en cours..."
 
             # Copie le backup du jour comme sauvegarde mensuelle
-            cp "data/backups/weekly/${DATE}.json" "data/backups/monthly/${MONTH}.json"
+            cp "data/backups/daily/${DATE}.json" "data/backups/monthly/${MONTH}.json"
             echo "Mensuel créé : data/backups/monthly/${MONTH}.json"
 
-            # Supprime tous les anciens fichiers hebdomadaires (sauf celui du jour)
-            find data/backups/weekly/ -name "*.json" ! -name "${DATE}.json" -delete
-            echo "Anciens hebdomadaires supprimés."
+            # Supprime tous les anciens fichiers quotidiens (sauf celui du jour)
+            find data/backups/daily/ -name "*.json" ! -name "${DATE}.json" -delete
+            echo "Anciens quotidiens supprimés."
           else
-            echo "Pas de consolidation (jour $DAY > 7)."
+            echo "Pas de consolidation (jour $DAY ≠ 01)."
           fi
 
       - name: Commit et push
